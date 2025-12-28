@@ -16,7 +16,7 @@
 #' @export
 drawSimulationGrid <- function(opt_object, round_inputs=c(), 
                                intersect_points=NULL, grid_resolution=50){
-  
+ 
   # setup from opt object
   dose_inputs <- opt_object[['searchSpace']]
   
@@ -62,6 +62,29 @@ drawSimulationGrid <- function(opt_object, round_inputs=c(),
   return(opt_object)
 }
 
+#' Manually Add Grid Search Simulation Agenda
+#'
+#' Receives a simulation agenda (table) for running Grid Search. Simulation agenda format needs to follow the format drawn by \code{drawSimulationGrid}.  
+#'
+#' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}. 
+#' @param sim_agenda Grid simulation agenda (table). See \code{drawSimulationGrid}.
+#'
+#' @return The updated \code{opt_object} with a new \code{grid} element and status. The grid is also saved to \code{GridSearch.csv} in the project directory.
+#' @export
+addManualSimulationGrid <- function(opt_object, sim_agenda){
+  # append to object
+  opt_object[['grid']] <- sim_agenda
+  opt_object[['grid_run_status']] <- "Not run"
+  
+  # save grid
+  write.csv(sim_agenda, paste0(opt_object[['WorkDirectory']], "GridSearch.csv"), row.names=F)
+  
+  # save object
+  saveProject(opt_object)
+  
+  return(opt_object)
+}
+
 #' Run Grid Search
 #'
 #' Runs PKPD simulations over a grid of treatment parameter combinations stored in the optimization object.
@@ -76,11 +99,12 @@ drawSimulationGrid <- function(opt_object, round_inputs=c(),
 #' @param output_filename Optional character string specifying the name of the CSV file to save results. Default is \code{"GridSearchResult.csv"}.
 #' @param n_cores Integer. Number of CPU cores to use for parallel simulation. If \code{n_cores > 1}, uses \code{mclapply()} for parallel execution. Default is 1 (sequential).
 #' @param redo_run Logical. If TRUE, re-evaluates all grid points even if results already exist. Default is FALSE.
+#' @param penalty_type string. Options are 'binary' (target failure rate) or 'continuous' (penalty value). Default is 'binary'. 
 #'
 #' @return The updated \code{opt_object} with updated \code{grid_run_status}. The results are appended to a CSV file in the working directory.
 #' @export
 gridSearchEvaluation <- function(opt_object, output_filename=NULL,
-                                 n_cores=1, redo_run=F){
+                                 n_cores=1, redo_run=F, penalty_type='binary'){
   if(is.null(opt_object[['grid']])){
     print("Grid missing! Please first draw the simulation grid using 'drawSimulationGrid'")
   }else{
@@ -120,7 +144,9 @@ gridSearchEvaluation <- function(opt_object, output_filename=NULL,
     
     # status update
     opt_object[['grid_run_status']] <- "Run started . . . "
+    opt_object[['grid_run_output_file']] <- output_filename
     saveProject(opt_object)
+    print("Starting grid search . . . ")
     
     # run through the simulation agenda
     if(n_cores<=1){
@@ -134,7 +160,8 @@ gridSearchEvaluation <- function(opt_object, output_filename=NULL,
                                population_samples=opt_object[['populationSample']], n_sub=n_subjects,
                                fun_postprocessing=opt_object[['fun_postProcessing']],
                                verbose_level=0, write_file=NULL,
-                               dose_scaling = opt_object[['fun_doseScaling']])
+                               dose_scaling = opt_object[['fun_doseScaling']],
+                               eval_format = penalty_type)
         
         penalty_value <- c(unlist(grid_table[xi,]), penalty_value)
         
@@ -152,7 +179,8 @@ gridSearchEvaluation <- function(opt_object, output_filename=NULL,
                                fun_postprocessing=opt_object[['fun_postProcessing']],
                                verbose_level=0,
                                write_file=NULL,
-                               dose_scaling = opt_object[['fun_doseScaling']])
+                               dose_scaling = opt_object[['fun_doseScaling']],
+                               eval_format = penalty_type)
         penalty_value <- c(unlist(grid_table[xi,]), penalty_value)
         
         write.table(data.frame(t(penalty_value)), output_file,
@@ -165,222 +193,65 @@ gridSearchEvaluation <- function(opt_object, output_filename=NULL,
   # reporting
   opt_object[['grid_run_status']] <- "Completed"
   saveProject(opt_object)
+  print("Grid search completed.")
   
   return(opt_object)
 }
 
-#PARETO---------------
-#' Draw Pareto Optimization Grid
+#PARETO FRONT APPROXIMATE FROM GRID SEARCH----------
+#' Approximate Pareto Front from Grid Search Result
 #'
-#' Creates a grid of relative objective weights for multi-objective optimization. The grid is built
-#' using historical optimization results to identify which objectives vary meaningfully, and constructs
-#' combinations of normalized weights across those objectives. The resulting grid is saved to file and
-#' stored in the optimization object.
+#' Draws a list of Pareto-optimal points from grid search result. 
+#' If a previous Pareto front approximate is available in the project directory, this result will be used unless redraw_front is TRUE.
+#' Function returns error message if neither GridSearchResult.csv nor ParetoFrontApproximate.csv was found.
 #'
-#' Note: \code{\link{runOptimization}} or \code{\link{runOptimization_Multiple}} must be run beforehand to generate the optimization history file required for this function.
+#' Note: \code{\link{gridSearchEvaluation}} must be run beforehand to generate the grid from which the Pareto front will be approximated from.
 #'
 #' @import dplyr
-#' @import rlist
+#' @import rPref
+#' @import purrr
 #' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}. Must include previously run optimization history.
-#' @param grid_values Numeric vector. Defines the set of relative weights to assign to each objective. Default is \code{c(0.1, 0.25, 0.5, 0.75, 1)}.
-#' @param opt_history_name Character. The method name used in the previous optimization run (e.g., \code{"PSO-LBFGSB"}), which also serves as the prefix for the CSV file containing optimization history (e.g., \code{"PSO-LBFGSB_OptimizationHistory.csv"}).
-#' @param nonzero_fraction_threshold Numeric. Threshold for determining whether an objective varies meaningfully across history. Objectives that are zero in more than \code{(1 - threshold)} of runs are fixed to the lowest priority. Default is \code{0.05}.
+#' @param write_output Boolean prompt to write the Pareto front approximate as output. Filename is 'ParetoFrontApproximate.csv' by default.
+#' @param redraw_front Boolean prompt to manually require the function to re-draw Pareto front approximate from the latest grid search result.
 #'
 #' @return The updated \code{opt_object} with a new \code{paretoGrid} element and status. The grid is also saved to \code{ParetoGrid.csv} in the project directory.
 #' @export
-drawParetoGrid <- function(opt_object, grid_values=c(0.1, 0.25, 0.5, 0.75, 1), 
-                           opt_history_name="PSO-LBFGSB", nonzero_fraction_threshold=0.05){
-  # collect objective list
-  treatment_objectives <- opt_object[['treatmentObjectives']]
+approximateParetoFront <- function(opt_object, write_output=T, redraw_front = F,
+                                   grid_search_result_filename = NULL, output_file_name = NULL){
+  # get grid run name
+  if(is.null(grid_search_result_filename)){
+    grid_search_result_filename <- ifelse(!is.null(opt_object[['grid_run_output_file']]),
+                                          "GridSearchResult.csv", opt_object[['grid_run_output_file']])
+  }
   
-  # collect optimization history
-  opt_history <- paste0(opt_object[['WorkDirectory']], opt_history_name, "_OptimizationHistory.csv")
-  opt_history <- read.csv(opt_history, header=T)
-  colnames(opt_history) <- apply(treatment_objectives, 1, function(x) paste(x['evaluation_column'], x['type'], sep="_"))
-  
-  # select varying objectives that is fully attained in more than 5% of the tested data points
-  varying_parameters <- apply(opt_history, 2, function(x){1-mean(x==0)})
-  varying_parameters <- varying_parameters>nonzero_fraction_threshold
-  
-  # create grid
-  param_list <- setNames(rep(list(grid_values), length(varying_parameters)), names(varying_parameters))
-  grid <- expand_grid(!!!param_list)
-  
-  # fix priority of non-varying parameter to lowest
-  for(xi in c(1:length(varying_parameters))){
-    if(!varying_parameters[xi]){
-      grid[,xi] <- min(grid_values)
+  # attempt to look for grid search result
+  grid_result_file <- paste0(opt_object$WorkDirectory, "/", grid_search_result_filename)
+  pareto_front_file <- paste0(opt_object$WorkDirectory, ifelse(is.null(output_file_name), 
+                                                                       "/ParetoFrontApproximate.csv", paste0("/", output_file_name)))
+  if(file.exists(grid_result_file) & (!file.exists(pareto_front_file) | redraw_front)){
+    # read grid search result
+    grid_search <- read.csv(grid_result_file, header=TRUE)
+    
+    # Build the expression: product of the low of all columns starting with "penalty_"
+    penalty_cols <- names(grid_search)[grepl("^penalty_", names(grid_search))]
+    pref_expr <- paste0("low(", penalty_cols, ")", collapse = " * ")
+    
+    # get list of pareto fronts
+    pareto_fronts <- psel(grid_search, eval(parse(text = pref_expr)))
+    
+    # output pareto optimal points
+    if(write_output){
+      write.csv(pareto_fronts, pareto_front_file, row.names=F)
     }
-  }
-  grid <- distinct(grid)
-  
-  # normalize to maxima (relative priority)
-  grid_normalized <- grid %>%
-    as.matrix() %>% t() %>%
-    apply(2, function(row) row / max(row)) %>%
-    t() %>% as.data.frame()
-  
-  # Restore original column names
-  colnames(grid_normalized) <- colnames(grid)
-  
-  # Remove duplicate rows
-  grid <- distinct(grid_normalized)
-  
-  # append to optimization object
-  opt_object[['paretoGrid']] <- grid
-  opt_object[['pareto_run_status']] <- 'Not run'
-  
-  # write grid
-  write.csv(grid, paste0(opt_object[['WorkDirectory']], "ParetoGrid.csv"), row.names=F)
-  saveProject(opt_object)
-  
-  return(opt_object)
-}
-
-#' Perform Pareto Grid Optimization
-#'
-#' Runs multi-objective optimization using a grid of objective weight combinations defined in the \code{paretoGrid}.
-#' For each weight setting, a separate optimization is performed, and the resulting parameters and penalty values
-#' are saved to file. This approach enables Pareto front exploration across competing objectives.
-#'
-#' Note: \code{\link{drawParetoGrid}} must be run before executing this function.
-#'
-#' @import dplyr
-#' @import rlist
-#' @import parallel
-#' 
-#' @param opt_object An optimization task object that includes a valid \code{paretoGrid}. The grid should be created using \code{\link{drawParetoGrid}}.
-#' @param opt_method Character. Name of the optimization algorithm to use for each Pareto point (e.g., \code{"PSO-LBFGSB"}, \code{"GA"}, \code{"BFGS"}). For list of available method, see \code{\link{runOptimization}}.
-#' @param opt_control Named list of control parameters specific to the selected optimization method. See \code{\link{runOptimization}} for supported options.
-#' @param output_filename Optional character string specifying the name of the CSV file to store the results. Default is \code{"ParetoResult.csv"}.
-#' @param n_cores Integer. Number of CPU cores to use for parallel execution. If \code{n_cores > 1}, simulations are run using \code{mclapply()}. Default is 1 (sequential).
-#' @param kurtosis_penalty Numeric. Penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.
-#' @param redo_run Logical. If TRUE, all Pareto grid points are re-evaluated even if results already exist. Default is FALSE.
-#'
-#' @return The updated \code{opt_object} with updated \code{pareto_run_status}. Results are appended to a CSV file in the working directory.
-#' @export
-paretoGridSearch <- function(opt_object, opt_method,
-                             opt_control=list(),
-                             output_filename=NULL, n_cores=1,
-                             kurtosis_penalty=50, redo_run=F){
-  # setup
-  sim_inputs <- opt_object[['simulationSettings']]
-  n_subjects <- sim_inputs[['n_subjects']]
-  pareto_grid <- opt_object[['paretoGrid']]
-  
-  # check previously generated values
-  if(is.null(output_filename)){output_filename <- "ParetoResult.csv"}
-  output_file <- paste0(opt_object[['WorkDirectory']], output_filename)
-  if(file.exists(output_file) & !redo_run){
-    # read previously ran grid
-    previous_grid <- read.csv(output_file, header=T)[,c(1:ncol(pareto_grid))]
-    
-    # summarize condition in grid
-    previous_grid$condition <- apply(previous_grid, 1, function(x) paste(x, collapse='_'))
-    
-    # remove executed runs from the simulation agenda
-    pareto_grid$condition <- apply(pareto_grid, 1, function(x) paste(x, collapse='_'))
-    pareto_grid <- filter(pareto_grid, !condition %in% previous_grid$condition) %>% 
-      dplyr::select(-condition)
+  }else if(file.exists(pareto_front_file) & !redraw_front){
+    # read previous pareto front approximate if output file exist and re-read prompt not given
+    pareto_fronts <- read.csv(pareto_front_file, header=TRUE)
   }else{
-    # initiate output file
-    empty_df <- data.frame(matrix(ncol = (ncol(pareto_grid)+
-                                            nrow(opt_object[['searchSpace']])+
-                                            nrow(opt_object[['treatmentObjectives']])), nrow = 0))
-    colnames(empty_df) <- c(paste0("weights_", colnames(pareto_grid)), 
-                            rownames(opt_object[['searchSpace']]), 
-                            apply(opt_object[['treatmentObjectives']], 1, function(x) paste(x['evaluation_column'], x['type'], sep=".")))
-    write.csv(empty_df, output_file, row.names = FALSE)
+    pareto_fronts <- "Error: Grid search result not found. Please run Grid Search Evaluation!"
   }
   
-  # status update
-  opt_object[['pareto_run_status']] <- "Run started . . . "
-  saveProject(opt_object)
-  
-  # run optimization per-grid object
-  if(n_cores==1){
-    # perform run
-    nullCallBack <- lapply(c(1:nrow(pareto_grid)), function(xi){
-      # adjust objective weights
-      current_opt_task <- opt_object
-      current_opt_task[['treatmentObjectives']]$weight <- unlist(pareto_grid[xi,])
-      
-      # run optimization
-      opt_result <- runOptimization(current_opt_task, method_name=opt_method, 
-                                    kurtosis = kurtosis_penalty, 
-                                    verbose=2,
-                                    opt_control = opt_control, save_object=F,
-                                    return_optimization_result=T)
-      
-      # get parameter values
-      opt_par <- opt_result[c(1:nrow(current_opt_task[['searchSpace']]))] %>% unlist()
-      names(opt_par) <- rownames(current_opt_task[['searchSpace']])
-      
-      # get penalty values
-      penalty_values <- objFn(opt_par, 
-                              rownames(current_opt_task[['searchSpace']]),
-                              sim_inputs,
-                              model=current_opt_task[['pkpdModel']], 
-                              evaluation_matrix=opt_object[['treatmentObjectives']], # USE UNWEIGHTED MATRIX
-                              pkpd_pars=current_opt_task[['modelParameters']], 
-                              fun_generalEventMatrix=current_opt_task[['fun_generateEventTable_general']],
-                              population_samples=current_opt_task[['populationSample']], n_sub=n_subjects,
-                              fun_postprocessing=current_opt_task[['fun_postProcessing']],
-                              verbose_level=0, write_file=NULL,
-                              dose_scaling = current_opt_task[['fun_doseScaling']])
-      
-      # append result
-      row_write <- c(unlist(pareto_grid[xi,]), opt_par, penalty_values)
-      
-      # output
-      write.table(data.frame(t(row_write)), output_file,
-                  sep=",", row.names=F, col.names=F, append=T)
-      return(NULL)
-    })
-  }else{
-    # perform run
-    library(parallel)
-    nullCallBack <- mclapply(c(1:nrow(pareto_grid)), function(xi){
-      # adjust objective weights
-      current_opt_task <- opt_object
-      current_opt_task[['treatmentObjectives']]$weight <- unlist(pareto_grid[xi,])
-      
-      # run optimization
-      opt_result <- runOptimization(current_opt_task, method_name=opt_method, 
-                                    kurtosis = kurtosis_penalty, 
-                                    verbose=2,
-                                    opt_control = opt_control, save_object=F,
-                                    return_optimization_result=T)
-      
-      # get parameter values
-      opt_par <- opt_result[c(1:nrow(current_opt_task[['searchSpace']]))] %>% unlist()
-      names(opt_par) <- rownames(current_opt_task[['searchSpace']])
-      
-      # get penalty values
-      penalty_values <- objFn(opt_par, 
-                              rownames(current_opt_task[['searchSpace']]),
-                              sim_inputs,
-                              model=current_opt_task[['pkpdModel']], 
-                              evaluation_matrix=opt_object[['treatmentObjectives']], # USE UNWEIGHTED MATRIX
-                              pkpd_pars=current_opt_task[['modelParameters']], 
-                              fun_generalEventMatrix=current_opt_task[['fun_generateEventTable_general']],
-                              population_samples=current_opt_task[['populationSample']], n_sub=n_subjects,
-                              fun_postprocessing=current_opt_task[['fun_postProcessing']],
-                              verbose_level=0, write_file=NULL,
-                              dose_scaling = current_opt_task[['fun_doseScaling']])
-      
-      # append result
-      row_write <- c(unlist(pareto_grid[xi,]), opt_par, penalty_values)
-      
-      # output
-      write.table(data.frame(t(row_write)), output_file,
-                  sep=",", row.names=F, col.names=F, append=T)
-      return(NULL)
-    }, mc.cores=n_cores)
-  }
-  
-  # reporting
-  opt_object[['pareto_run_status']] <- "Completed"
+  # save result
+  opt_object[['approx_pareto_front']] <- pareto_fronts
   saveProject(opt_object)
   
   return(opt_object)
