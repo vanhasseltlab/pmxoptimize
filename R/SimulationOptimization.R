@@ -88,6 +88,43 @@ runOptimization <- function(opt_object,
       write_file_name <- NULL
     }
     
+    # check warnings for control stream
+    if(grepl("PSO", method_name)){
+      if(!'pso_maxit' %in% names(opt_control)){
+        print(" !!! PSO number of iterations not defined. Default value used (100)")
+        opt_control[['pso_maxit']] <- 100
+      }
+    }
+    if(method_name=="PSO-LBFGSB"){
+      if(!'use_previous_PSO' %in% names(opt_control) | !'use_PSO' %in% names(opt_control)){
+        print(" !!! PSO prefit options incomplete. Default options used (previous PSO used if available)")
+        opt_control[['use_PSO']] <- T
+        opt_control[['use_previous_PSO']] <- T
+      }
+    }else if(method_name=="GA"){
+      if(!'GA_maxit' %in% names(opt_control)){
+        print(" !!! GA number of iterations not defined. Default value used (100)")
+        opt_control[['GA_maxit']] <- 100
+      }
+      if(!'GA_parallel' %in% names(opt_control)){
+        print(" !!! GA parallel processing value not defined. Single-core precess selected by default.")
+        opt_control[['GA_parallel']] <- F
+      }
+    }else if(method_name=='ABC'){
+      if(!'ABC_maxit' %in% names(opt_control)){
+        print(" !!! ABC number of iterations not defined. Default value used (500).")
+        opt_control[['ABC_maxit']] <- 500
+      }
+      if(!'ABC_nFoodSource' %in% names(opt_control)){
+        print(" !!! ABC number of food source undefined. Default value used (20).")
+        opt_control[['ABC_nFoodSource']] <- 20
+      }
+      if(!'ABC_foodLimit' %in% names(opt_control)){
+        print(" !!! ABC limit number of food undefined. Default value used (50).")
+        opt_control[['ABC_foodLimit']] <- 50
+      }
+    }
+    
     # method selection
     if(method_name=='PSO-LBFGSB'){
       # run PSO pre-fit
@@ -573,7 +610,8 @@ objFn <- function(pars, par_names,
                   fun_postprocessing=NULL,
                   verbose_level=2,
                   write_file=NULL,
-                  dose_scaling = NULL){
+                  dose_scaling = NULL,
+                  eval_format = 'continuous'){
   # generate event matrix
   event_matrix <- fun_generalEventMatrix(pars, par_names, simulation_settings) %>% 
     eventMatrix_appendEtaDemographicsSample(population_samples, n_subjects = n_sub,
@@ -590,7 +628,8 @@ objFn <- function(pars, par_names,
   # run evaluation
   penalty_value <- evaluation_allObjectives(sim_res, evaluation_matrix,
                                             gamma_kurtosis = gamma,
-                                            event_matrix_eval = event_matrix) %>% unlist()
+                                            event_matrix_eval = event_matrix,
+                                            evaluation_format = eval_format) %>% unlist()
   sum_penalty <- sum(penalty_value)
   
   # reporting

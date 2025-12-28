@@ -188,7 +188,11 @@ replicateProject <- function(opt_object, new_work_directory){
 reloadContents <- function(opt_object){
   # load optimization grid if exist
   if(!is.na(opt_object[['grid_run_status']])){
-    opt_object[['grid']] <- read.csv(paste0(opt_object[['WorkDirectory']], "GridSearch.csv"), header=T)
+    if(file.exists(paste0(opt_object[['WorkDirectory']], "GridSearch.csv"))){
+      opt_object[['grid']] <- read.csv(paste0(opt_object[['WorkDirectory']], "GridSearch.csv"), header=T)
+    }else{
+      print("Grid search result not found!")
+    }
   }
   
   # load pareto grid if exist
