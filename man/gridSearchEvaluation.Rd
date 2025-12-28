@@ -8,7 +8,8 @@ gridSearchEvaluation(
   opt_object,
   output_filename = NULL,
   n_cores = 1,
-  redo_run = F
+  redo_run = F,
+  penalty_type = "binary"
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ gridSearchEvaluation(
 \item{n_cores}{Integer. Number of CPU cores to use for parallel simulation. If \code{n_cores > 1}, uses \code{mclapply()} for parallel execution. Default is 1 (sequential).}
 
 \item{redo_run}{Logical. If TRUE, re-evaluates all grid points even if results already exist. Default is FALSE.}
+
+\item{penalty_type}{string. Options are 'binary' (target failure rate) or 'continuous' (penalty value). Default is 'binary'.}
 }
 \value{
 The updated \code{opt_object} with updated \code{grid_run_status}. The results are appended to a CSV file in the working directory.

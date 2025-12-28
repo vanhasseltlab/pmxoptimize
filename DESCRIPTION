@@ -1,11 +1,19 @@
 Package: pmxoptimize
-Title: What the Package Does (One Line, Title Case)
+Title: Runs population-level dosing regimen optimization
 Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R: c(
+  person("Sebastian", "Tandar", 
+         email = "s.t.tandar@lacdr.leidenuniv.nl",
+         role = c("aut", "cre")),
+  person("Massinissa", "Beldjenna", 
+         email = "m.beldjenna@lacdr.leidenuniv.nl",
+         role = "aut"),         
+  person("Coen", "van Hasselt",
+         email = "coen.vanhasselt@lacdr.leidenuniv.nl",
+         role = "cre")
+  )
+Description: 
+License: 
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
@@ -13,7 +21,7 @@ Imports:
     purrr,
     dplyr,
     reshape2,
-    rxode2,
+    rxode2 (>= 3.0.4),
     tidyr,
     rlist,
     parallel,
