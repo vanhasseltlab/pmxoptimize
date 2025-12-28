@@ -7,6 +7,8 @@
 runGateOptimization(
   opt_object,
   starting_point,
+  kurtosis = 50,
+  gate_kurtosis = 50,
   optimization_method = "PSO",
   optimization_control = list(),
   return_optimization = F,
@@ -22,6 +24,11 @@ Must include a valid population sample, search space definition, and PKPD model.
 
 \item{starting_point}{Named numeric vector defining the initial treatment parameter values
 used to initialize and gate the optimization search.}
+
+\item{kurtosis}{Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.}
+
+\item{gate_kurtosis}{Numeric. Gate penalty tuning parameter passed to the gate optimization's
+objective function. Default is 50.}
 
 \item{optimization_method}{Character. Name of the optimization algorithm to use.
 Supported methods are the same as for \code{runOptimization}, with \code{"PSO"}

@@ -18,6 +18,9 @@
 #' Must include a valid population sample, search space definition, and PKPD model.
 #' @param starting_point Named numeric vector defining the initial treatment parameter values
 #' used to initialize and gate the optimization search.
+#' @param kurtosis Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.
+#' @param gate_kurtosis Numeric. Gate penalty tuning parameter passed to the gate optimization's 
+#' objective function. Default is 50.
 #' @param optimization_method Character. Name of the optimization algorithm to use.
 #' Supported methods are the same as for \code{runOptimization}, with \code{"PSO"}
 #' recommended for gated optimization.
@@ -40,6 +43,7 @@
 #' @seealso \code{\link{runOptimization}}
 #' @export
 runGateOptimization <- function(opt_object, starting_point, 
+                                kurtosis=50, gate_kurtosis = 50,
                                 optimization_method = 'PSO',
                                 optimization_control=list(), return_optimization = F,
                                 verbose_level = 2, output_filename = NULL, save_optimization=T,
@@ -53,6 +57,7 @@ runGateOptimization <- function(opt_object, starting_point,
                                    fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']],
                                    population_samples=opt_object[['populationSample']], 
                                    n_sub=opt_object[['simulationSettings']]['n_subjects'],
+                                   kurtosis = kurtosis,
                                    fun_postprocessing=opt_object[['fun_postProcessing']],
                                    verbose_level=0, write_file=NULL,
                                    dose_scaling = opt_object[['fun_doseScaling']],
@@ -73,7 +78,7 @@ runGateOptimization <- function(opt_object, starting_point,
   if(!multiple){print("Starting gate optimization . . . ")}
   opt_result <- coreOptimization_gate(opt_object, pointPenalty_continuous,
                                       method_name = optimization_method, 
-                                      kurtosis = 50, 
+                                      kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                                       verbose = verbose_level, opt_control=optimization_control, 
                                       save_object = save_optimization,
                                       output_file = output_filename,
@@ -107,6 +112,9 @@ runGateOptimization <- function(opt_object, starting_point,
 #' @param start_points Data frame of starting points, where each row corresponds to a named
 #' treatment parameter vector used as \code{starting_point} input to \code{runGateOptimization}.
 #' Columns are matched and reordered to \code{rownames(opt_object[['searchSpace']])}.
+#' @param kurtosis Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.
+#' @param gate_kurtosis Numeric. Gate penalty tuning parameter passed to the gate optimization's 
+#' objective function. Default is 50.
 #' @param n_cores Integer. Number of CPU cores to use for parallel execution. If greater than 1,
 #' runs are distributed using \code{parallel::mclapply}. Default is 1.
 #' @param optimization_method Character. Name of the optimization algorithm to use for each run
@@ -123,8 +131,9 @@ runGateOptimization <- function(opt_object, starting_point,
 #'
 #' @seealso \code{\link{runGateOptimization}}
 #' @export
-runGateOptimization__Multiple <- function(opt_object, start_points, n_cores=1,
-                                          optimization_method='PSO-LBFGSB',
+runGateOptimization__Multiple <- function(opt_object, start_points, 
+                                          kurtosis=50, gate_kurtosis = 50,
+                                          n_cores=1, optimization_method='PSO-LBFGSB',
                                           output_directory_name=NULL, optimization_control=list()){
   # order starting point names
   start_points <- start_points[,rownames(opt_object[['searchSpace']])]
@@ -145,7 +154,8 @@ runGateOptimization__Multiple <- function(opt_object, start_points, n_cores=1,
   n_cores <- min(n_cores, nrow(start_points))
   if(n_cores>1){
     gate_optimization_results <- mclapply(c(1:nrow(start_points)), function(xi){
-      runGateOptimization(opt_object, start_points[xi,], 
+      runGateOptimization(opt_object, start_points[xi,],
+                          kurtosis=kurtosis, gate_kurtosis=gate_kurtosis,
                           optimization_method = optimization_method,
                           optimization_control=optimization_control,
                           output_filename = output_filenames[xi], 
@@ -153,6 +163,7 @@ runGateOptimization__Multiple <- function(opt_object, start_points, n_cores=1,
   }else{
     gate_optimization_results <- lapply(c(1:nrow(start_points)), function(xi){
       runGateOptimization(opt_object, start_points[xi,], 
+                          kurtosis=kurtosis, gate_kurtosis=gate_kurtosis,
                           optimization_method = optimization_method,
                           optimization_control=optimization_control,
                           output_filename = output_filenames[xi], 
@@ -166,8 +177,8 @@ runGateOptimization__Multiple <- function(opt_object, start_points, n_cores=1,
 
 #NON-USER ---------------------
 # Optimization - units
-activationFunction_gateOptimization <- function(x, x_threshold, kurtosis = 50){
-  0.5*(1 + exp(-kurtosis * (x_threshold/x - 1)))/(x_threshold/x) # 0.5 multiplier so that value is 1 at x=x_threshold
+activationFunction_gateOptimization <- function(x, x_threshold, gate_kurtosis = 50){
+  0.5*(1 + exp(-gate_kurtosis * (x_threshold/x - 1)))/(x_threshold/x) # 0.5 multiplier so that value is 1 at x=x_threshold
 }
 
 # Optimization - Complex
@@ -180,7 +191,7 @@ objFn_gate <- function(pars, par_names,
                        pkpd_pars, fun_generalEventMatrix, 
                        population_samples, n_sub, 
                        gate_penalties,
-                       gamma = 50,
+                       kurtosis = 50, gate_kurtosis = 50,
                        fun_postprocessing=NULL,
                        verbose_level=2,
                        write_file=NULL,
@@ -201,13 +212,13 @@ objFn_gate <- function(pars, par_names,
   
   # run evaluation
   penalty_value_continuous <- evaluation_allObjectives(sim_res, evaluation_matrix,
-                                                       gamma_kurtosis = gamma,
+                                                       kurtosis = kurtosis,
                                                        event_matrix_eval = event_matrix,
                                                        evaluation_format = 'continuous') %>% unlist()
   
   # calculate gate penalties
-  gate_penalty <- activationFunction_revSwish(penalty_value_continuous, gate_penalties,
-                                              kurtosis=gamma) %>% sum()
+  gate_penalty <- activationFunction_gateOptimization(penalty_value_continuous, gate_penalties,
+                                                      gate_kurtosis=gate_kurtosis) %>% sum()
   
   # calculate sum penalty
   penalty_sum <- as.numeric(sum(penalty_value_continuous) + gate_penalty)
@@ -248,7 +259,7 @@ objFn_gate <- function(pars, par_names,
 #' @importFrom ABCoptim abc_optim
 coreOptimization_gate <- function(opt_object, gate_penalty,
                                   method_name = 'PSO-LBFGSB', 
-                                  kurtosis = 50, 
+                                  kurtosis = 50, gate_kurtosis = 50,
                                   verbose = 2, opt_control=list(), 
                                   save_object=T, output_file=NULL,
                                   return_optimization_result=F){
@@ -335,7 +346,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                               pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                               population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                               gate_penalties = gate_penalty,
-                              gamma = kurtosis,
+                              kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                               verbose_level = verbose,
                               write_file = write_file_name,
                               dose_scaling = opt_object[['fun_doseScaling']],
@@ -365,7 +376,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                        pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                        population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                        gate_penalties = gate_penalty,
-                       gamma = kurtosis,
+                       kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                        verbose_level = verbose,
                        write_file = write_file_name,
                        dose_scaling = opt_object[['fun_doseScaling']],
@@ -384,7 +395,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                         pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                         population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                         gate_penalties = gate_penalty,
-                        gamma = kurtosis,
+                        kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                         verbose_level = verbose,
                         write_file = write_file_name,
                         dose_scaling = opt_object[['fun_doseScaling']],
@@ -404,7 +415,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                    pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                    population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                    gate_penalties = gate_penalty,
-                   gamma = kurtosis,
+                   kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                    verbose_level = verbose,
                    write_file = write_file_name,
                    dose_scaling = opt_object[['fun_doseScaling']],
@@ -425,7 +436,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                    pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                    population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                    gate_penalties = gate_penalty,
-                   gamma = kurtosis,
+                   kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                    verbose_level = verbose,
                    write_file = write_file_name,
                    dose_scaling = opt_object[['fun_doseScaling']],
@@ -458,7 +469,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                           pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                           population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                           gate_penalties = gate_penalty,
-                          gamma = kurtosis,
+                          kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                           verbose_level = verbose,
                           write_file = write_file_name,
                           dose_scaling = opt_object[['fun_doseScaling']],
@@ -492,7 +503,7 @@ coreOptimization_gate <- function(opt_object, gate_penalty,
                        pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                        population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                        gate_penalties = gate_penalty,
-                       gamma = kurtosis,
+                       kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
                        verbose_level = verbose,
                        write_file = write_file_name,
                        dose_scaling = opt_object[['fun_doseScaling']],

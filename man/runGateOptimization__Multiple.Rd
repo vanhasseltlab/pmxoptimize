@@ -7,6 +7,8 @@
 runGateOptimization__Multiple(
   opt_object,
   start_points,
+  kurtosis = 50,
+  gate_kurtosis = 50,
   n_cores = 1,
   optimization_method = "PSO-LBFGSB",
   output_directory_name = NULL,
@@ -20,6 +22,11 @@ Must include a valid population sample, search space definition, and PKPD model.
 \item{start_points}{Data frame of starting points, where each row corresponds to a named
 treatment parameter vector used as \code{starting_point} input to \code{runGateOptimization}.
 Columns are matched and reordered to \code{rownames(opt_object[['searchSpace']])}.}
+
+\item{kurtosis}{Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.}
+
+\item{gate_kurtosis}{Numeric. Gate penalty tuning parameter passed to the gate optimization's
+objective function. Default is 50.}
 
 \item{n_cores}{Integer. Number of CPU cores to use for parallel execution. If greater than 1,
 runs are distributed using \code{parallel::mclapply}. Default is 1.}

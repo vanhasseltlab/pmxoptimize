@@ -137,7 +137,7 @@ runOptimization <- function(opt_object,
                               model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
                               pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                               population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-                              gamma = kurtosis,
+                              kurtosis = kurtosis,
                               verbose_level = verbose,
                               write_file = write_file_name,
                               dose_scaling = opt_object[['fun_doseScaling']],
@@ -166,7 +166,7 @@ runOptimization <- function(opt_object,
                        model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
                        pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                        population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-                       gamma = kurtosis,
+                       kurtosis = kurtosis,
                        verbose_level = verbose,
                        write_file = write_file_name,
                        dose_scaling = opt_object[['fun_doseScaling']],
@@ -184,7 +184,7 @@ runOptimization <- function(opt_object,
                         model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
                         pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                         population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-                        gamma = kurtosis,
+                        kurtosis = kurtosis,
                         verbose_level = verbose,
                         write_file = write_file_name,
                         dose_scaling = opt_object[['fun_doseScaling']],
@@ -203,7 +203,7 @@ runOptimization <- function(opt_object,
                    model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
                    pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                    population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-                   gamma = kurtosis,
+                   kurtosis = kurtosis,
                    verbose_level = verbose,
                    write_file = write_file_name,
                    dose_scaling = opt_object[['fun_doseScaling']],
@@ -223,7 +223,7 @@ runOptimization <- function(opt_object,
               model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
               pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
               population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-              gamma = kurtosis,
+              kurtosis = kurtosis,
               verbose_level = verbose,
               write_file = write_file_name,
               dose_scaling = opt_object[['fun_doseScaling']],
@@ -255,7 +255,7 @@ runOptimization <- function(opt_object,
                           model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
                           pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                           population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-                          gamma = kurtosis,
+                          kurtosis = kurtosis,
                           verbose_level = verbose,
                           write_file = write_file_name,
                           dose_scaling = opt_object[['fun_doseScaling']],
@@ -288,7 +288,7 @@ runOptimization <- function(opt_object,
                        model=opt_object[['pkpdModel']], evaluation_matrix=opt_object[['treatmentObjectives']],
                        pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                        population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
-                       gamma = kurtosis,
+                       kurtosis = kurtosis,
                        verbose_level = verbose,
                        write_file = write_file_name,
                        dose_scaling = opt_object[['fun_doseScaling']],
@@ -410,7 +410,7 @@ evaluation_singleObjective <- function(sim_result, evaluation_column, time_evalu
                                        type = 'state', time_max = NA, 
                                        source_type = 'simulation',
                                        event_matrix = NA,
-                                       gamma_value = 50,
+                                       kurtosis = 50,
                                        eval_format = 'continuous'){
   # use event matrix if prompted instead
   if(source_type=='event_matrix' & length(event_matrix)>1){
@@ -491,7 +491,7 @@ evaluation_singleObjective <- function(sim_result, evaluation_column, time_evalu
     return(mean(crit_failed))
   }else{
     # perform evaluation
-    penalty <- activationFunction(sim_result$evaluation_value, value_threshold, kurtosis = gamma_value)
+    penalty <- activationFunction(sim_result$evaluation_value, value_threshold, kurtosis = kurtosis)
     
     # flip penalty value if test is a minima test
     if(test_type=='lower_tail'){penalty <- 1-penalty}
@@ -508,7 +508,7 @@ evaluation_singleObjective <- function(sim_result, evaluation_column, time_evalu
 #' @import tidyr
 evaluation_allObjectives <- function(simulation_result, evaluation_table, 
                                      event_matrix_eval,
-                                     gamma_kurtosis = 50,
+                                     kurtosis = 50,
                                      evaluation_format = 'continuous'){
   
   # standardize input column caps
@@ -531,7 +531,7 @@ evaluation_allObjectives <- function(simulation_result, evaluation_table,
                                time_max=evaluation_table$time_max[xi],
                                source=evaluation_table$source[xi],
                                event_matrix = event_matrix_eval,
-                               gamma = gamma_kurtosis,
+                               kurtosis = kurtosis,
                                eval_format = evaluation_format)
   })
   
@@ -606,7 +606,7 @@ objFn <- function(pars, par_names,
                   model, evaluation_matrix,
                   pkpd_pars, fun_generalEventMatrix, 
                   population_samples, n_sub, 
-                  gamma = 50,
+                  kurtosis = 50,
                   fun_postprocessing=NULL,
                   verbose_level=2,
                   write_file=NULL,
@@ -627,7 +627,7 @@ objFn <- function(pars, par_names,
   
   # run evaluation
   penalty_value <- evaluation_allObjectives(sim_res, evaluation_matrix,
-                                            gamma_kurtosis = gamma,
+                                            kurtosis = kurtosis,
                                             event_matrix_eval = event_matrix,
                                             evaluation_format = eval_format) %>% unlist()
   sum_penalty <- sum(penalty_value)
