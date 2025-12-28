@@ -6,7 +6,7 @@
 \usage{
 generatePopulationSample(
   opt_object,
-  n_subject_population,
+  n_subjects,
   random_effect_parameters,
   random_effect_covariance = NULL,
   patient_demographics_continuous = NULL,
@@ -19,7 +19,7 @@ generatePopulationSample(
 \arguments{
 \item{opt_object}{mobTD object (a list object containing project configuration).}
 
-\item{n_subject_population}{Integer. The number of individuals to include in the population sample.}
+\item{n_subjects}{Integer. The number of individuals to include in the population sample.}
 
 \item{random_effect_parameters}{A named numeric vector or list specifying variability parameters. The names must match the ETA identifiers used in the PKPD model included in the opt_object. If a parameter is provided as a percentage (\%IIV), it will be internally converted to ETA scale for simulation. Additionally, any names containing 'iiv' will be automatically renamed to 'eta' to align with the model syntax.}
 

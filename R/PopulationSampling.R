@@ -9,7 +9,7 @@
 #' @import dplyr
 #' 
 #' @param opt_object mobTD object (a list object containing project configuration).
-#' @param n_subject_population Integer. The number of individuals to include in the population sample.
+#' @param n_subjects Integer. The number of individuals to include in the population sample.
 #' @param random_effect_parameters A named numeric vector or list specifying variability parameters. The names must match the ETA identifiers used in the PKPD model included in the opt_object. If a parameter is provided as a percentage (%IIV), it will be internally converted to ETA scale for simulation. Additionally, any names containing 'iiv' will be automatically renamed to 'eta' to align with the model syntax.
 #' @param random_effect_covariance Optional matrix. The covariance matrix of the random effects. If NULL, diagonal structure is assumed.
 #' @param patient_demographics_continuous Optional named list. Each element defines a continuous demographic. If demographics_from_range = TRUE, each element should be a numeric vector of three values: median, lower bound, and upper bound. If demographics_from_range = FALSE, each element should be a numeric vector of two values: mean and standard deviation.
@@ -20,7 +20,7 @@
 #'
 #' @return The updated \code{opt_object} list with the generated population sample. Population sample is also exported in the working directory.
 #' @export
-generatePopulationSample <- function(opt_object, n_subject_population,
+generatePopulationSample <- function(opt_object, n_subjects,
                                      random_effect_parameters,
                                      random_effect_covariance = NULL,
                                      patient_demographics_continuous=NULL,
@@ -29,13 +29,13 @@ generatePopulationSample <- function(opt_object, n_subject_population,
                                      demographics_from_range = F,
                                      force_demographics_inrange = F){
   # A | get ETA samples
-  populationSample <- sampleETAs(random_effect_parameters, n_subject_population, 
+  populationSample <- sampleETAs(random_effect_parameters, n_subjects, 
                                  random_effect_covariance,
                                  from_iiv = !IIV_from_OMEGA)
   
   # B | Get continuous patient demographics sample
   if(!is.null(patient_demographics_continuous)){
-    demographicsSample <- sampleDemographics_continuous(patient_demographics_continuous, n_subject_population, 
+    demographicsSample <- sampleDemographics_continuous(patient_demographics_continuous, n_subjects, 
                                                         from_range=demographics_from_range) %>% 
       mutate(id = as.numeric(id))
     
@@ -56,7 +56,7 @@ generatePopulationSample <- function(opt_object, n_subject_population,
   
   # C | Get categorical patient demographics sample
   if(!is.null(patient_demographics_categorical)){
-    demographicsSample_categorical <- lapply(patient_demographics_categorical, sampleDemographics_categorical, n_subject_population)
+    demographicsSample_categorical <- lapply(patient_demographics_categorical, sampleDemographics_categorical, n_subjects)
     if(length(demographicsSample_categorical)>1){
       demographicsSample_categorical <- reduce(demographicsSample_categorical, left_join, by = "id") # combine to one dataframe
     }else{

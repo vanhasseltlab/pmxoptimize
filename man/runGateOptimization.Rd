@@ -14,8 +14,7 @@ runGateOptimization(
   return_optimization = F,
   verbose_level = 2,
   output_filename = NULL,
-  save_optimization = T,
-  multiple = F
+  save_optimization = T
 )
 }
 \arguments{
@@ -35,7 +34,7 @@ Supported methods are the same as for \code{runOptimization}, with \code{"PSO"}
 recommended for gated optimization.}
 
 \item{optimization_control}{Named list of control parameters specific to the selected
-optimization method.}
+optimization method. For detailed options for each optimization method, see \code{runOptimization}.}
 
 \item{return_optimization}{Logical. If TRUE, the optimization result is returned together
 with the starting point. If FALSE, the updated \code{opt_object} is returned. Default is FALSE.}
@@ -48,9 +47,6 @@ or results may be written.}
 
 \item{save_optimization}{Logical. If TRUE, the optimization results and updated object
 are saved to disk. Default is TRUE.}
-
-\item{multiple}{Logical. If TRUE, suppresses console messages for batch execution of
-multiple gate optimizations. Default is FALSE.}
 }
 \value{
 If \code{return_optimization = FALSE}, the updated \code{opt_object} is returned.

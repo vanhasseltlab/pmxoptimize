@@ -4,12 +4,12 @@
 \alias{runSimulation}
 \title{Run PKPD Simulation}
 \usage{
-runSimulation(opt_object, treatment_parameters)
+runSimulation(opt_object, simulation_treatment_parameters)
 }
 \arguments{
 \item{opt_object}{An optimization task object as created by \code{initiateOptimizationTask}. Must contain a valid population sample, model, and simulation settings.}
 
-\item{treatment_parameters}{A named numeric vector of treatment parameter values. Names must match the row names of the \code{searchSpace} component in \code{opt_object}.}
+\item{simulation_treatment_parameters}{A named numeric vector of treatment parameter values for simulation. Names must match the row names of the \code{searchSpace} component in \code{opt_object}.}
 }
 \value{
 A data frame containing the simulated PKPD results. If a post-processing function is defined in \code{opt_object}, it is applied before returning.

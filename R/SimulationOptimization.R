@@ -18,10 +18,10 @@
 #' @importFrom ABCoptim abc_optim
 #' 
 #' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}. Must include a valid population sample.
-#' @param method_name Character. Name of the optimization algorithm to use. Supported methods include: \code{"PSO-LBFGSB"}, \code{"PSO"}, \code{"LBFGSB"}, \code{"GA"}, \code{"SA"}, \code{"ABC"}, \code{"DE"}, \code{"BFGS"}, \code{"Nelder-Mead"}, \code{"bobyqa"}, and \code{"nlminb"}.
+#' @param optimization_method Character. Name of the optimization algorithm to use. Supported methods include: \code{"PSO-LBFGSB"}, \code{"PSO"}, \code{"LBFGSB"}, \code{"GA"}, \code{"SA"}, \code{"ABC"}, \code{"DE"}, \code{"BFGS"}, \code{"Nelder-Mead"}, \code{"bobyqa"}, and \code{"nlminb"}.
 #' @param kurtosis Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.
-#' @param verbose Integer (0–3). Level of verbosity during optimization. If set to 3, history of objective values will be written to file.
-#' @param opt_control Named list of control parameters specific to the selected optimization method. The available options depend on the selected \code{method_name}:
+#' @param verbose_level Integer (0–3). Level of verbosity during optimization. If set to 3, history of objective values will be written to file.
+#' @param optimization_control Named list of control parameters specific to the selected optimization method. The available options depend on the selected \code{optimization_method}:
 #' \itemize{
 #'   \item \strong{PSO-LBFGSB:}
 #'     \describe{
@@ -55,9 +55,9 @@
 #' @return Either the updated \code{opt_object} or the optimization result, depending on the value of \code{return_optimization_result}.
 #' @export
 runOptimization <- function(opt_object,
-                            method_name = 'PSO-LBFGSB', 
+                            optimization_method = 'PSO-LBFGSB', 
                             kurtosis = 50,
-                            verbose = 2, opt_control=list(), save_object=T,
+                            verbose_level = 2, optimization_control=list(), save_object=T,
                             return_optimization_result=F){
   if(is.null(opt_object[['populationSample']])){
     print("Population sample required!")
@@ -66,71 +66,71 @@ runOptimization <- function(opt_object,
     sim_settings <- opt_object[['simulationSettings']]
     
     # load previous fit if prompted and if file existed
-    if(method_name=='PSO-LBFGSB'){
-      if(opt_control[['use_previous_PSO']]){
+    if(optimization_method=='PSO-LBFGSB'){
+      if(optimization_control[['use_previous_PSO']]){
         if(file.exists(paste0(opt_object[['WorkDirectory']], "PSOprefit.Rdata"))){
           # if file exist, load previous prefit and use as init for BFGS
           load(paste0(opt_object[['WorkDirectory']], "PSOprefit.Rdata"))
         }else{
           # if file does not exist; override 'use_previous_prefit' request
-          opt_control[['use_previous_PSO']]=F
+          optimization_control[['use_previous_PSO']]=F
         }
       }
     }
     
-    # initiate output history track if verbose=3
-    if(verbose==3){
+    # initiate output history track if verbose_level=3
+    if(verbose_level==3){
       empty_df <- data.frame(matrix(ncol = nrow(opt_object[['treatmentObjectives']]), nrow = 0))
       colnames(empty_df) <- opt_object[['treatmentObjectives']]$evaluation_column
-      write_file_name <- paste0(opt_object[['WorkDirectory']], method_name, "_OptimizationHistory.csv")
+      write_file_name <- paste0(opt_object[['WorkDirectory']], optimization_method, "_OptimizationHistory.csv")
       write.csv(empty_df, write_file_name, row.names = FALSE)
     }else{
       write_file_name <- NULL
     }
     
     # check warnings for control stream
-    if(grepl("PSO", method_name)){
-      if(!'pso_maxit' %in% names(opt_control)){
+    if(grepl("PSO", optimization_method)){
+      if(!'pso_maxit' %in% names(optimization_control)){
         print(" !!! PSO number of iterations not defined. Default value used (100)")
-        opt_control[['pso_maxit']] <- 100
+        optimization_control[['pso_maxit']] <- 100
       }
     }
-    if(method_name=="PSO-LBFGSB"){
-      if(!'use_previous_PSO' %in% names(opt_control) | !'use_PSO' %in% names(opt_control)){
+    if(optimization_method=="PSO-LBFGSB"){
+      if(!'use_previous_PSO' %in% names(optimization_control) | !'use_PSO' %in% names(optimization_control)){
         print(" !!! PSO prefit options incomplete. Default options used (previous PSO used if available)")
-        opt_control[['use_PSO']] <- T
-        opt_control[['use_previous_PSO']] <- T
+        optimization_control[['use_PSO']] <- T
+        optimization_control[['use_previous_PSO']] <- T
       }
-    }else if(method_name=="GA"){
-      if(!'GA_maxit' %in% names(opt_control)){
+    }else if(optimization_method=="GA"){
+      if(!'GA_maxit' %in% names(optimization_control)){
         print(" !!! GA number of iterations not defined. Default value used (100)")
-        opt_control[['GA_maxit']] <- 100
+        optimization_control[['GA_maxit']] <- 100
       }
-      if(!'GA_parallel' %in% names(opt_control)){
+      if(!'GA_parallel' %in% names(optimization_control)){
         print(" !!! GA parallel processing value not defined. Single-core precess selected by default.")
-        opt_control[['GA_parallel']] <- F
+        optimization_control[['GA_parallel']] <- F
       }
-    }else if(method_name=='ABC'){
-      if(!'ABC_maxit' %in% names(opt_control)){
+    }else if(optimization_method=='ABC'){
+      if(!'ABC_maxit' %in% names(optimization_control)){
         print(" !!! ABC number of iterations not defined. Default value used (500).")
-        opt_control[['ABC_maxit']] <- 500
+        optimization_control[['ABC_maxit']] <- 500
       }
-      if(!'ABC_nFoodSource' %in% names(opt_control)){
+      if(!'ABC_nFoodSource' %in% names(optimization_control)){
         print(" !!! ABC number of food source undefined. Default value used (20).")
-        opt_control[['ABC_nFoodSource']] <- 20
+        optimization_control[['ABC_nFoodSource']] <- 20
       }
-      if(!'ABC_foodLimit' %in% names(opt_control)){
+      if(!'ABC_foodLimit' %in% names(optimization_control)){
         print(" !!! ABC limit number of food undefined. Default value used (50).")
-        opt_control[['ABC_foodLimit']] <- 50
+        optimization_control[['ABC_foodLimit']] <- 50
       }
     }
     
     # method selection
-    if(method_name=='PSO-LBFGSB'){
+    if(optimization_method=='PSO-LBFGSB'){
       # run PSO pre-fit
       # library(pso)
       print('### PSO ###')
-      if(!opt_control[['use_previous_PSO']] & opt_control[['use_PSO']]){
+      if(!optimization_control[['use_previous_PSO']] & optimization_control[['use_PSO']]){
         pso_prefit <- psoptim(opt_object[['searchSpace']]$start, fn=objFn,
                               par_names = rownames(opt_object[['searchSpace']]),
                               simulation_settings=sim_settings,
@@ -138,17 +138,17 @@ runOptimization <- function(opt_object,
                               pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                               population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                               kurtosis = kurtosis,
-                              verbose_level = verbose,
+                              verbose_level = verbose_level,
                               write_file = write_file_name,
                               dose_scaling = opt_object[['fun_doseScaling']],
                               fun_postprocessing=opt_object[['fun_postProcessing']],
                               lower=opt_object[['searchSpace']]$lb,
                               upper=opt_object[['searchSpace']]$ub,
-                              control=list(maxit=opt_control[['pso_maxit']]))
+                              control=list(maxit=optimization_control[['pso_maxit']]))
         pso_prefitPars <- pso_prefit$par
         save(pso_prefit, file=paste0(opt_object[['WorkDirectory']], "PSOprefit.Rdata"))
       }else{
-        if(!opt_control[['use_PSO']]){
+        if(!optimization_control[['use_PSO']]){
           # get default starting value if use_PSO is not prompted
           pso_prefitPars <- opt_object[['searchSpace']]$start
         }else{
@@ -167,7 +167,7 @@ runOptimization <- function(opt_object,
                        pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                        population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                        kurtosis = kurtosis,
-                       verbose_level = verbose,
+                       verbose_level = verbose_level,
                        write_file = write_file_name,
                        dose_scaling = opt_object[['fun_doseScaling']],
                        fun_postprocessing=opt_object[['fun_postProcessing']],
@@ -175,7 +175,7 @@ runOptimization <- function(opt_object,
                        upper=opt_object[['searchSpace']]$ub,
                        method = 'L-BFGS-B')
       save(optRes, file=paste0(opt_object[['WorkDirectory']], "PSO_LBFGSB_mainfit.Rdata"))
-    }else if(method_name=='PSO'){
+    }else if(optimization_method=='PSO'){
       # library(pso)
       print('### PSO ###')
       optRes <- psoptim(opt_object[['searchSpace']]$start, fn=objFn,
@@ -185,15 +185,15 @@ runOptimization <- function(opt_object,
                         pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                         population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                         kurtosis = kurtosis,
-                        verbose_level = verbose,
+                        verbose_level = verbose_level,
                         write_file = write_file_name,
                         dose_scaling = opt_object[['fun_doseScaling']],
                         fun_postprocessing=opt_object[['fun_postProcessing']],
                         lower=opt_object[['searchSpace']]$lb,
                         upper=opt_object[['searchSpace']]$ub,
-                        control=list(maxit=opt_control[['pso_maxit']]))
-      save(optRes, file=paste0(opt_object[['WorkDirectory']], method_name, "_mainfit.Rdata"))
-    }else if(method_name=='GA'){
+                        control=list(maxit=optimization_control[['pso_maxit']]))
+      save(optRes, file=paste0(opt_object[['WorkDirectory']], optimization_method, "_mainfit.Rdata"))
+    }else if(optimization_method=='GA'){
       # library(GA)
       print('### GA ###')
       optRes <- ga(type='real-valued', 
@@ -204,16 +204,16 @@ runOptimization <- function(opt_object,
                    pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                    population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                    kurtosis = kurtosis,
-                   verbose_level = verbose,
+                   verbose_level = verbose_level,
                    write_file = write_file_name,
                    dose_scaling = opt_object[['fun_doseScaling']],
                    fun_postprocessing=opt_object[['fun_postProcessing']],
-                   maxiter=opt_control[['GA_maxit']],
+                   maxiter=optimization_control[['GA_maxit']],
                    lower=opt_object[['searchSpace']]$lb,
                    upper=opt_object[['searchSpace']]$ub,
-                   parallel=opt_control[['GA_parallel']])
-      save(optRes, file=paste0(opt_object[['WorkDirectory']], method_name, "_mainfit.Rdata"))
-    }else if(method_name %in% c('SA', 'DE')){
+                   parallel=optimization_control[['GA_parallel']])
+      save(optRes, file=paste0(opt_object[['WorkDirectory']], optimization_method, "_mainfit.Rdata"))
+    }else if(optimization_method %in% c('SA', 'DE')){
       # methods requiring wrapper function
       # create wrapper function
       wrapperFunction <- function(pars){
@@ -224,14 +224,14 @@ runOptimization <- function(opt_object,
               pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
               population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
               kurtosis = kurtosis,
-              verbose_level = verbose,
+              verbose_level = verbose_level,
               write_file = write_file_name,
               dose_scaling = opt_object[['fun_doseScaling']],
               fun_postprocessing=opt_object[['fun_postProcessing']])
       }
       
       # run SA
-      if(method_name=='SA'){
+      if(optimization_method=='SA'){
         # library(optimization)
         print('### SA ###')
         optRes <- optim_sa(fun=wrapperFunction,
@@ -246,7 +246,7 @@ runOptimization <- function(opt_object,
                           lower=opt_object[['searchSpace']]$lb,
                           upper=opt_object[['searchSpace']]$ub) # currently no control function (add later!)
       }
-    }else if(method_name=='ABC'){
+    }else if(optimization_method=='ABC'){
       # library(ABCoptim)
       print("### ABC ###")
       optRes <- abc_optim(opt_object[['searchSpace']]$start, fn=objFn,
@@ -256,24 +256,24 @@ runOptimization <- function(opt_object,
                           pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                           population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                           kurtosis = kurtosis,
-                          verbose_level = verbose,
+                          verbose_level = verbose_level,
                           write_file = write_file_name,
                           dose_scaling = opt_object[['fun_doseScaling']],
                           fun_postprocessing=opt_object[['fun_postProcessing']],
                           lb=opt_object[['searchSpace']]$lb,
                           ub=opt_object[['searchSpace']]$ub,
-                          FoodNumber = opt_control[['ABC_nFoodSource']],
-                          maxCycle = opt_control[['ABC_maxit']],
-                          limit = opt_control[['ABC_foodLimit']])
+                          FoodNumber = optimization_control[['ABC_nFoodSource']],
+                          maxCycle = optimization_control[['ABC_maxit']],
+                          limit = optimization_control[['ABC_foodLimit']])
     }else{
       # library(optimx)
-      print(paste('###', method_name, '###', sep=" "))
+      print(paste('###', optimization_method, '###', sep=" "))
       
       # rename LBFGSB
-      use_method_name <- ifelse(method_name=='LBFGSB', "L-BFGS-B", method_name)
+      use_optimization_method <- ifelse(optimization_method=='LBFGSB', "L-BFGS-B", optimization_method)
       
       # other methods by optimx - remove boundary when method is BFGS
-      if(method_name != 'BFGS'){
+      if(optimization_method != 'BFGS'){
         lower_bound <- opt_object[['searchSpace']]$lb
         upper_bound <- opt_object[['searchSpace']]$ub
       }else{
@@ -289,19 +289,19 @@ runOptimization <- function(opt_object,
                        pkpd_pars=opt_object[['modelParameters']], fun_generalEventMatrix=opt_object[['fun_generateEventTable_general']], 
                        population_samples=opt_object[['populationSample']], n_sub=sim_settings['n_subjects'],
                        kurtosis = kurtosis,
-                       verbose_level = verbose,
+                       verbose_level = verbose_level,
                        write_file = write_file_name,
                        dose_scaling = opt_object[['fun_doseScaling']],
                        fun_postprocessing=opt_object[['fun_postProcessing']],
                        lower=lower_bound, upper=upper_bound, 
-                       method = use_method_name)
+                       method = use_optimization_method)
     }
     
     # save output
-    save(optRes, file=paste0(opt_object[['WorkDirectory']], method_name, "_mainfit.Rdata"))
+    save(optRes, file=paste0(opt_object[['WorkDirectory']], optimization_method, "_mainfit.Rdata"))
     
     # add marker to object
-    opt_object[['latest_optimization_run']] <- paste0(opt_object[['WorkDirectory']], method_name, "_mainfit.Rdata")
+    opt_object[['latest_optimization_run']] <- paste0(opt_object[['WorkDirectory']], optimization_method, "_mainfit.Rdata")
     
     # save progress
     if(save_object){
@@ -325,37 +325,37 @@ runOptimization <- function(opt_object,
 #' @import parallel
 #' 
 #' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}. Must include a valid population sample.
-#' @param optimization_agenda A list of optimization method configurations. Each element must be a named list with:
+#' @param optimization_methods_agenda A list of optimization method configurations. Each element must be a named list with:
 #' \describe{
 #'   \item{\code{method}}{A character string specifying the optimization method (e.g., \code{"PSO-LBFGSB"}, \code{"GA"}, \code{"BFGS"}).}
 #'   \item{\code{control}}{A named list of control parameters specific to the method. See \code{runOptimization()} for details.}
 #' }
 #' @param kurtosis Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.
-#' @param verbose Integer (0–3). Level of verbosity during optimization. Default is 3.
-#' @param n_cores Integer. Number of CPU cores to use. If \code{n_cores > 1}, optimization is run in parallel using \code{mclapply()}. Default is 1.
+#' @param verbose_level Integer (0–3). Level of verbosity during optimization. Default is 3.
+#' @param n_cores Integer. Number of CPU cores to use for parallel simulation. If \code{n_cores > 1}, uses \code{mclapply()} for parallel execution. Default is 1 (sequential).
 #'
 #' @return The updated \code{opt_object} after running all specified optimization methods.
 #' @export
-runOptimization_Multiple <- function(opt_object, optimization_agenda,
-                                     kurtosis=50, verbose=3, n_cores=1){
+runOptimization_Multiple <- function(opt_object, optimization_methods_agenda,
+                                     kurtosis=50, verbose_level=3, n_cores=1){
   # run optimization
   if(n_cores==1){
-    opt_objects <- lapply(optimization_agenda, function(x){
-      runOptimization(opt_object, method_name=x[['method']],
-                      kurtosis=kurtosis, verbose=verbose,
-                      opt_control = x[['control']], save_object=F)
+    opt_objects <- lapply(optimization_methods_agenda, function(x){
+      runOptimization(opt_object, optimization_method=x[['method']],
+                      kurtosis=kurtosis, verbose_level=verbose_level,
+                      optimization_control = x[['control']], save_object=F)
     })  
   }else{
     # library(parallel)
-    opt_objects <- mclapply(optimization_agenda, function(x){
-      runOptimization(opt_object, method_name=x[['method']],
-                      kurtosis=kurtosis, verbose=verbose,
-                      opt_control = x[['control']], save_object=F)
+    opt_objects <- mclapply(optimization_methods_agenda, function(x){
+      runOptimization(opt_object, optimization_method=x[['method']],
+                      kurtosis=kurtosis, verbose_level=verbose_level,
+                      optimization_control = x[['control']], save_object=F)
     }, mc.cores=n_cores)
   }
   
   # add marker to object
-  opt_object[['latest_optimization_run']] <- paste(unlist(lapply(optimization_agenda, function(x) x[['method']])), collapse=" | ")
+  opt_object[['latest_optimization_run']] <- paste(unlist(lapply(optimization_methods_agenda, function(x) x[['method']])), collapse=" | ")
   
   # save object
   saveProject(opt_object)
@@ -373,13 +373,13 @@ runOptimization_Multiple <- function(opt_object, optimization_agenda,
 #' @import rxode2
 #' 
 #' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}. Must contain a valid population sample, model, and simulation settings.
-#' @param treatment_parameters A named numeric vector of treatment parameter values. Names must match the row names of the \code{searchSpace} component in \code{opt_object}.
+#' @param simulation_treatment_parameters A named numeric vector of treatment parameter values for simulation. Names must match the row names of the \code{searchSpace} component in \code{opt_object}.
 #'
 #' @return A data frame containing the simulated PKPD results. If a post-processing function is defined in \code{opt_object}, it is applied before returning.
 #' @export
-runSimulation <- function(opt_object, treatment_parameters){
+runSimulation <- function(opt_object, simulation_treatment_parameters){
   # generate event matrix
-  event_matrix <- opt_object[['fun_generateEventTable_general']](treatment_parameters, 
+  event_matrix <- opt_object[['fun_generateEventTable_general']](simulation_treatment_parameters, 
                                                                  rownames(opt_object[['searchSpace']]), 
                                                                  opt_object[['simulationSettings']]) %>% 
     eventMatrix_appendEtaDemographicsSample(opt_object[['populationSample']], 

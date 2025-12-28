@@ -25,7 +25,7 @@
 #' Supported methods are the same as for \code{runOptimization}, with \code{"PSO"}
 #' recommended for gated optimization.
 #' @param optimization_control Named list of control parameters specific to the selected
-#' optimization method.
+#' optimization method. For detailed options for each optimization method, see \code{runOptimization}.
 #' @param return_optimization Logical. If TRUE, the optimization result is returned together
 #' with the starting point. If FALSE, the updated \code{opt_object} is returned. Default is FALSE.
 #' @param verbose_level Integer (0–3). Controls verbosity during optimization.
@@ -34,8 +34,6 @@
 #' or results may be written.
 #' @param save_optimization Logical. If TRUE, the optimization results and updated object
 #' are saved to disk. Default is TRUE.
-#' @param multiple Logical. If TRUE, suppresses console messages for batch execution of
-#' multiple gate optimizations. Default is FALSE.
 #'
 #' @return If \code{return_optimization = FALSE}, the updated \code{opt_object} is returned.
 #' If TRUE, a named vector combining the starting point and optimization result is returned.
@@ -46,8 +44,7 @@ runGateOptimization <- function(opt_object, starting_point,
                                 kurtosis=50, gate_kurtosis = 50,
                                 optimization_method = 'PSO',
                                 optimization_control=list(), return_optimization = F,
-                                verbose_level = 2, output_filename = NULL, save_optimization=T,
-                                multiple = F){
+                                verbose_level = 2, output_filename = NULL, save_optimization=T){
   # get continuous point penalty value
   pointPenalty_continuous <- objFn(as.numeric(starting_point), names(starting_point),
                                    opt_object[['simulationSettings']],
@@ -75,7 +72,7 @@ runGateOptimization <- function(opt_object, starting_point,
   }
   
   # run optimization
-  if(!multiple){print("Starting gate optimization . . . ")}
+  print("Starting gate optimization . . . ")
   opt_result <- coreOptimization_gate(opt_object, pointPenalty_continuous,
                                       method_name = optimization_method, 
                                       kurtosis = kurtosis, gate_kurtosis = gate_kurtosis,
@@ -83,7 +80,7 @@ runGateOptimization <- function(opt_object, starting_point,
                                       save_object = save_optimization,
                                       output_file = output_filename,
                                       return_optimization_result=return_optimization)
-  if(!multiple){print("Gate optimization complete!")}
+  print("Gate optimization complete!")
   
   # return value
   if(!return_optimization){
@@ -109,21 +106,20 @@ runGateOptimization <- function(opt_object, starting_point,
 #'
 #' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}.
 #' Must include a valid population sample, search space definition, and PKPD model.
-#' @param start_points Data frame of starting points, where each row corresponds to a named
+#' @param starting_points_multiple Data frame of starting points, where each row corresponds to a named
 #' treatment parameter vector used as \code{starting_point} input to \code{runGateOptimization}.
 #' Columns are matched and reordered to \code{rownames(opt_object[['searchSpace']])}.
 #' @param kurtosis Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.
 #' @param gate_kurtosis Numeric. Gate penalty tuning parameter passed to the gate optimization's 
 #' objective function. Default is 50.
-#' @param n_cores Integer. Number of CPU cores to use for parallel execution. If greater than 1,
-#' runs are distributed using \code{parallel::mclapply}. Default is 1.
+#' @param n_cores Integer. Number of CPU cores to use for parallel simulation. If \code{n_cores > 1}, uses \code{mclapply()} for parallel execution. Default is 1 (sequential).
 #' @param optimization_method Character. Name of the optimization algorithm to use for each run
-#' (passed to \code{runGateOptimization}). Default is \code{"PSO-LBFGSB"}.
+#' (passed to \code{runGateOptimization}). Default is \code{"PSO"}.
+#' @param optimization_control Named list of control parameters for the selected optimization
+#' method (passed to \code{runGateOptimization}).
 #' @param output_directory_name Character or NULL. Name of the subdirectory within
 #' \code{opt_object[['WorkDirectory']]} where outputs will be written. If provided, the directory
 #' is created if it does not exist.
-#' @param optimization_control Named list of control parameters for the selected optimization
-#' method (passed to \code{runGateOptimization}).
 #'
 #' @return The (unchanged) \code{opt_object}. Results are produced as side effects (files written
 #' to disk); each run returns its optimization output internally but is not propagated by this
@@ -131,43 +127,44 @@ runGateOptimization <- function(opt_object, starting_point,
 #'
 #' @seealso \code{\link{runGateOptimization}}
 #' @export
-runGateOptimization__Multiple <- function(opt_object, start_points, 
-                                          kurtosis=50, gate_kurtosis = 50,
-                                          n_cores=1, optimization_method='PSO-LBFGSB',
-                                          output_directory_name=NULL, optimization_control=list()){
+runGateOptimization_Multiple <- function(opt_object, starting_points_multiple, 
+                                         kurtosis=50, gate_kurtosis = 50,
+                                         n_cores=1, optimization_method='PSO',
+                                         optimization_control=list(),
+                                         output_directory_name=NULL){
   # order starting point names
-  start_points <- start_points[,rownames(opt_object[['searchSpace']])]
+  starting_points_multiple <- starting_points_multiple[,rownames(opt_object[['searchSpace']])]
   
   # prepare output directory and filenames
   output_dir <- paste0(opt_object[['WorkDirectory']], output_directory_name, "/")
   if(!file.exists(output_dir)){dir.create(output_dir)}
   
   # print out starting points
-  rownames(start_points) <- c(1:nrow(start_points))
-  write.csv(start_points, paste0(output_dir, "GateOptimization_StartingPoints.csv"), row.names=T)
+  rownames(starting_points_multiple) <- c(1:nrow(starting_points_multiple))
+  write.csv(starting_points_multiple, paste0(output_dir, "GateOptimization_StartingPoints.csv"), row.names=T)
   
   # prepare output filenames
-  output_filenames <- paste0(output_dir, "GateOptimizationRun_", c(1:nrow(start_points)))
+  output_filenames <- paste0(output_dir, "GateOptimizationRun_", c(1:nrow(starting_points_multiple)))
   
   # run optimization (parallel)
   print("Starting gate optimization (multiple) . . . ")
-  n_cores <- min(n_cores, nrow(start_points))
+  n_cores <- min(n_cores, nrow(starting_points_multiple))
   if(n_cores>1){
-    gate_optimization_results <- mclapply(c(1:nrow(start_points)), function(xi){
-      runGateOptimization(opt_object, start_points[xi,],
+    gate_optimization_results <- mclapply(c(1:nrow(starting_points_multiple)), function(xi){
+      runGateOptimization(opt_object, starting_points_multiple[xi,],
                           kurtosis=kurtosis, gate_kurtosis=gate_kurtosis,
                           optimization_method = optimization_method,
                           optimization_control=optimization_control,
                           output_filename = output_filenames[xi], 
-                          return_optimization = T, save_optimization = F, multiple=T)}, mc.cores=n_cores)
+                          return_optimization = T, save_optimization = F)}, mc.cores=n_cores)
   }else{
-    gate_optimization_results <- lapply(c(1:nrow(start_points)), function(xi){
-      runGateOptimization(opt_object, start_points[xi,], 
+    gate_optimization_results <- lapply(c(1:nrow(starting_points_multiple)), function(xi){
+      runGateOptimization(opt_object, starting_points_multiple[xi,], 
                           kurtosis=kurtosis, gate_kurtosis=gate_kurtosis,
                           optimization_method = optimization_method,
                           optimization_control=optimization_control,
                           output_filename = output_filenames[xi], 
-                          return_optimization = T, save_optimization = F, multiple=T)})
+                          return_optimization = T, save_optimization = F)})
   }
   print("Gate optimization complete (multiple)!")
   

@@ -5,7 +5,8 @@
 #'
 #' @import dplyr
 #' @importFrom reshape2 dcast melt
-#' @param pars A (named) vector representing the treatment design parameters to evaluate.  
+#' @param simulation_treatment_parameters A named numeric vector of treatment parameter values for simulation and evaluation. 
+#' Names must match the row names of the \code{searchSpace} component in \code{opt_object}.
 #' @param opt_object An optimization task object as created by \code{initiateOptimizationTask}.
 #' Must contain the following elements:
 #' \itemize{
@@ -30,9 +31,9 @@
 #'   \item{\code{sim_res_summary}}{Simulation result.}
 #' }
 #' @export
-runEvaluation <- function(pars, opt_object, expand_event_matrix=F, quantile_values=c(med=0.5, lb=0.025, ub=0.975)){
+runEvaluation <- function(simulation_treatment_parameters, opt_object, expand_event_matrix=F, quantile_values=c(med=0.5, lb=0.025, ub=0.975)){
   # generate event matrix
-  event_matrix <- opt_object[['fun_generateEventTable_general']](pars, rownames(opt_object[['searchSpace']]), opt_object[['simulationSettings']]) 
+  event_matrix <- opt_object[['fun_generateEventTable_general']](simulation_treatment_parameters, rownames(opt_object[['searchSpace']]), opt_object[['simulationSettings']]) 
   
   # expand observation timepoints if prompted
   if(expand_event_matrix){

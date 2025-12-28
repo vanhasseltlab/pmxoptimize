@@ -6,16 +6,16 @@
 \usage{
 runOptimization_Multiple(
   opt_object,
-  optimization_agenda,
+  optimization_methods_agenda,
   kurtosis = 50,
-  verbose = 3,
+  verbose_level = 3,
   n_cores = 1
 )
 }
 \arguments{
 \item{opt_object}{An optimization task object as created by \code{initiateOptimizationTask}. Must include a valid population sample.}
 
-\item{optimization_agenda}{A list of optimization method configurations. Each element must be a named list with:
+\item{optimization_methods_agenda}{A list of optimization method configurations. Each element must be a named list with:
 \describe{
 \item{\code{method}}{A character string specifying the optimization method (e.g., \code{"PSO-LBFGSB"}, \code{"GA"}, \code{"BFGS"}).}
 \item{\code{control}}{A named list of control parameters specific to the method. See \code{runOptimization()} for details.}
@@ -23,9 +23,9 @@ runOptimization_Multiple(
 
 \item{kurtosis}{Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.}
 
-\item{verbose}{Integer (0–3). Level of verbosity during optimization. Default is 3.}
+\item{verbose_level}{Integer (0–3). Level of verbosity during optimization. Default is 3.}
 
-\item{n_cores}{Integer. Number of CPU cores to use. If \code{n_cores > 1}, optimization is run in parallel using \code{mclapply()}. Default is 1.}
+\item{n_cores}{Integer. Number of CPU cores to use for parallel simulation. If \code{n_cores > 1}, uses \code{mclapply()} for parallel execution. Default is 1 (sequential).}
 }
 \value{
 The updated \code{opt_object} after running all specified optimization methods.

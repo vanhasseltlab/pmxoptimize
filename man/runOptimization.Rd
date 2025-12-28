@@ -6,10 +6,10 @@
 \usage{
 runOptimization(
   opt_object,
-  method_name = "PSO-LBFGSB",
+  optimization_method = "PSO-LBFGSB",
   kurtosis = 50,
-  verbose = 2,
-  opt_control = list(),
+  verbose_level = 2,
+  optimization_control = list(),
   save_object = T,
   return_optimization_result = F
 )
@@ -17,13 +17,13 @@ runOptimization(
 \arguments{
 \item{opt_object}{An optimization task object as created by \code{initiateOptimizationTask}. Must include a valid population sample.}
 
-\item{method_name}{Character. Name of the optimization algorithm to use. Supported methods include: \code{"PSO-LBFGSB"}, \code{"PSO"}, \code{"LBFGSB"}, \code{"GA"}, \code{"SA"}, \code{"ABC"}, \code{"DE"}, \code{"BFGS"}, \code{"Nelder-Mead"}, \code{"bobyqa"}, and \code{"nlminb"}.}
+\item{optimization_method}{Character. Name of the optimization algorithm to use. Supported methods include: \code{"PSO-LBFGSB"}, \code{"PSO"}, \code{"LBFGSB"}, \code{"GA"}, \code{"SA"}, \code{"ABC"}, \code{"DE"}, \code{"BFGS"}, \code{"Nelder-Mead"}, \code{"bobyqa"}, and \code{"nlminb"}.}
 
 \item{kurtosis}{Numeric. A penalty tuning parameter passed to the objective function. Represents the kurtosis parameter in a logistic function. Default is 50.}
 
-\item{verbose}{Integer (0–3). Level of verbosity during optimization. If set to 3, history of objective values will be written to file.}
+\item{verbose_level}{Integer (0–3). Level of verbosity during optimization. If set to 3, history of objective values will be written to file.}
 
-\item{opt_control}{Named list of control parameters specific to the selected optimization method. The available options depend on the selected \code{method_name}:
+\item{optimization_control}{Named list of control parameters specific to the selected optimization method. The available options depend on the selected \code{optimization_method}:
 \itemize{
 \item \strong{PSO-LBFGSB:}
 \describe{

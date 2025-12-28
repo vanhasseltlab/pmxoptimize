@@ -5,14 +5,15 @@
 \title{Run Simulation and Evaluate}
 \usage{
 runEvaluation(
-  pars,
+  simulation_treatment_parameters,
   opt_object,
   expand_event_matrix = F,
   quantile_values = c(med = 0.5, lb = 0.025, ub = 0.975)
 )
 }
 \arguments{
-\item{pars}{A (named) vector representing the treatment design parameters to evaluate.}
+\item{simulation_treatment_parameters}{A named numeric vector of treatment parameter values for simulation and evaluation.
+Names must match the row names of the \code{searchSpace} component in \code{opt_object}.}
 
 \item{opt_object}{An optimization task object as created by \code{initiateOptimizationTask}.
 Must contain the following elements:
